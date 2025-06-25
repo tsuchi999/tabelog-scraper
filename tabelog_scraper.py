@@ -190,11 +190,13 @@ for page in range(5, 10):
                 print(f"⏱️ 営業時間・Xアカウント取得失敗: {e}")
 
         score_display = f"<span style='color:red'>{score}</span>" if score != "?" and float(score) >= 3.62 else score
-        score_html = f"{score_display}{x_account_html}"
+        score_html = f"{score_display}"  # スコア部分のみ（赤文字装飾）
+        score_with_x = f"{score_html}{x_account_html}" if x_account_html else score_html
+
         map_link = f"<a href='https://www.google.com/maps/search/{name}' target='_blank'>MAP</a>"
         row_style = ' style="background-color:#f9f9f9;"' if len(all_shops) % 2 == 0 else ''
         html_lines.append(
-            f"<tr{row_style}><td>{rank}</td><td><a href='{url}' target='_blank'>{name}（{score_html}）</a></td><td>{station}</td><td>{closed}</td><td>{map_link}</td><td>{hours}</td></tr>"
+            f"<tr{row_style}><td>{rank}</td><td><a href='{url}' target='_blank'>{name}（{score_with_x}）</a></td><td>{station}</td><td>{closed}</td><td>{map_link}</td><td>{hours}</td></tr>"
         )
 
         all_shops.append(name)
