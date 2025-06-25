@@ -7,10 +7,10 @@ from bs4 import BeautifulSoup
 import os, time, re
 
 # 出力ディレクトリとファイルパス設定
-output_dir = r"D:\tabelog"
+output_dir = r"D:\\tabelog"
 os.makedirs(output_dir, exist_ok=True)
 output_file = os.path.join(output_dir, "tabelog_candidates.txt")
-html_output_file = os.path.join("D:\PythonScripts", "tabelog_candidates.html")
+html_output_file = os.path.join("D:\\PythonScripts", "tabelog_candidates.html")
 exclude_file = os.path.join(output_dir, "exclude_names.txt")
 visited_file = os.path.join(output_dir, "visited.txt")
 
@@ -31,10 +31,10 @@ with open(output_file, "w", encoding="utf-8") as f:
 
 html_lines = ["""
 <!DOCTYPE html>
-<html lang="ja">
+<html lang=\"ja\">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset=\"UTF-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
 <title>2025百名店候補店リスト</title>
 <style>
 table {
@@ -85,12 +85,12 @@ a:hover {
     white-space: nowrap;
     font-weight: bold;
   }
-  td:nth-of-type(1):before { content: "順位"; }
-  td:nth-of-type(2):before { content: "店名（スコア）"; }
-  td:nth-of-type(3):before { content: "最寄り駅"; }
-  td:nth-of-type(4):before { content: "休業日"; }
-  td:nth-of-type(5):before { content: "MAP"; }
-  td:nth-of-type(6):before { content: "営業時間"; }
+  td:nth-of-type(1):before { content: \"順位\"; }
+  td:nth-of-type(2):before { content: \"店名（スコア）\"; }
+  td:nth-of-type(3):before { content: \"最寄り駅\"; }
+  td:nth-of-type(4):before { content: \"休業日\"; }
+  td:nth-of-type(5):before { content: \"MAP\"; }
+  td:nth-of-type(6):before { content: \"営業時間\"; }
 }
 </style>
 </head>
@@ -113,7 +113,7 @@ driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
 all_shops = []
 
 for page in range(5, 10):
-    print(f"\n📄 {page}ページ目 開始")
+    print(f"\n\U0001f4c4 {page}ページ目 開始")
     driver.get(f"https://tabelog.com/kanagawa/rstLst/ramen/{page}/?Srt=D&SrtT=rt&sk=ラーメン")
 
     try:
@@ -143,8 +143,6 @@ for page in range(5, 10):
         if name in excluded:
             continue
 
-        print(f"✅ 取得：{name}")
-
         score = score_tag.get_text(strip=True) if score_tag else "?"
         rank = rank_tag.get_text(strip=True) if rank_tag else "?"
         closed = holiday_tag.get_text(strip=True) if holiday_tag else ""
@@ -157,8 +155,9 @@ for page in range(5, 10):
             else:
                 station = area_text.strip()
 
+        map_link = f"<a href='https://www.google.com/maps/search/{name}' target='_blank'>MAP</a>"
+
         hours = ""
-        x_account_html = ""
         if len(all_shops) < 10:
             driver.get(url)
             try:
@@ -180,18 +179,10 @@ for page in range(5, 10):
                 hours = re.sub(r'([0-9])([^0-9A-Za-z\s])', r'\1 \2', hours)
                 hours = re.sub(r'(\D)([0-9])', r'\1 \2', hours)
                 hours = hours.strip()
-
-                x_tag = shop_soup.select_one("a[href*='x.com']") or shop_soup.select_one("a[href*='twitter.com']")
-                if x_tag:
-                    x_href = x_tag.get("href", "")
-                    if "x.com" in x_href or "twitter.com" in x_href:
-                        x_account_html = f" <a href='{x_href}' target='_blank'>(X)</a>"
             except Exception as e:
-                print(f"⏱️ 営業時間・Xアカウント取得失敗: {e}")
+                print(f"⏱️ 営業時間取得失敗: {e}")
 
-        score_display = f"<span style='color:red'>{score}</span>" if score != "?" and float(score) >= 3.62 else score
-        score_html = f"{score_display}{x_account_html}"
-        map_link = f"<a href='https://www.google.com/maps/search/{name}' target='_blank'>MAP</a>"
+        score_html = f"<span style='color:red'>{score}</span>" if score != "?" and float(score) >= 3.62 else score
         row_style = ' style="background-color:#f9f9f9;"' if len(all_shops) % 2 == 0 else ''
         html_lines.append(
             f"<tr{row_style}><td>{rank}</td><td><a href='{url}' target='_blank'>{name}（{score_html}）</a></td><td>{station}</td><td>{closed}</td><td>{map_link}</td><td>{hours}</td></tr>"
