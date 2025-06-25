@@ -31,10 +31,10 @@ with open(output_file, "w", encoding="utf-8") as f:
 
 html_lines = ["""
 <!DOCTYPE html>
-<html lang="ja">
+<html lang=\"ja\">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset=\"UTF-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
 <title>2025百名店候補店リスト</title>
 <style>
 table {
@@ -85,12 +85,12 @@ a:hover {
     white-space: nowrap;
     font-weight: bold;
   }
-  td:nth-of-type(1):before { content: "順位"; }
-  td:nth-of-type(2):before { content: "店名（スコア）"; }
-  td:nth-of-type(3):before { content: "最寄り駅"; }
-  td:nth-of-type(4):before { content: "休業日"; }
-  td:nth-of-type(5):before { content: "MAP"; }
-  td:nth-of-type(6):before { content: "営業時間"; }
+  td:nth-of-type(1):before { content: \"順位\"; }
+  td:nth-of-type(2):before { content: \"店名（スコア）\"; }
+  td:nth-of-type(3):before { content: \"最寄り駅\"; }
+  td:nth-of-type(4):before { content: \"休業日\"; }
+  td:nth-of-type(5):before { content: \"MAP\"; }
+  td:nth-of-type(6):before { content: \"営業時間\"; }
 }
 </style>
 </head>
@@ -105,7 +105,6 @@ options.add_experimental_option("excludeSwitches", ["enable-automation"])
 options.add_experimental_option("useAutomationExtension", False)
 options.add_argument("user-agent=Mozilla/5.0")
 
-# ドライバ起動
 driver = webdriver.Chrome(options=options)
 driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
     "source": "Object.defineProperty(navigator, 'webdriver', { get: () => undefined })"
@@ -114,7 +113,7 @@ driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
 all_shops = []
 
 for page in range(5, 10):
-    print(f"\n📄 {page}ページ目 開始")
+    print(f"\n\U0001f4c4 {page}ページ目 開始")
     driver.get(f"https://tabelog.com/kanagawa/rstLst/ramen/{page}/?Srt=D&SrtT=rt&sk=ラーメン")
 
     try:
@@ -184,7 +183,10 @@ for page in range(5, 10):
                 print(f"⏱️ 営業時間取得失敗: {e}")
 
         score_html = f"<span style='color:red'>{score}</span>" if score != "?" and float(score) >= 3.62 else score
-        html_lines.append(f"<tr{' style=\"background-color:#f9f9f9;\"' if len(all_shops) % 2 == 0 else ''}><td>{rank}</td><td><a href='{url}' target='_blank'>{name}（{score_html}）</a></td><td>{station}</td><td>{closed}</td><td>{map_link}</td><td>{hours}</td></tr>")
+        row_style = ' style="background-color:#f9f9f9;"' if len(all_shops) % 2 == 0 else ''
+        html_lines.append(
+            f"<tr{row_style}><td>{rank}</td><td><a href='{url}' target='_blank'>{name}（{score_html}）</a></td><td>{station}</td><td>{closed}</td><td>{map_link}</td><td>{hours}</td></tr>"
+        )
 
         all_shops.append(name)
 
