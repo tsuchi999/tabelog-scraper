@@ -128,30 +128,19 @@ for page in range(5, 10):
     cards = soup.select("div.list-rst__wrap")
     print(f"👉 見つかった: {len(cards)} 店舗")
 
- for card in cards:
-    name_tag = card.select_one("a.list-rst__rst-name-target")
-    score_tag = card.select_one("span.c-rating__val")
-    rank_tag = card.select_one("span.c-ranking-badge__no")
-    genre_tag = card.select_one("div.list-rst__area-genre")
-    holiday_tag = card.select_one("span.list-rst__holiday-text")
-    
-    # ⚠️ 移転・閉店タグ除外
-    status_tag = card.select_one("span.c-badge-rst-status")
-    if status_tag and status_tag.get_text(strip=True) in ["移転", "閉店"]:
-        continue
+    for card in cards:
+        name_tag = card.select_one("a.list-rst__rst-name-target")
+        score_tag = card.select_one("span.c-rating__val")
+        rank_tag = card.select_one("span.c-ranking-badge__no")
+        genre_tag = card.select_one("div.list-rst__area-genre")
+        holiday_tag = card.select_one("span.list-rst__holiday-text")
 
-    if not name_tag:
-        continue
+        if not name_tag:
+            continue
 
-    name = name_tag.get_text(strip=True)
-    url = name_tag["href"]
-    if name in excluded:
-        continue
-
-    # ⚠️ カテゴリ除外チェック
-    if genre_tag:
-        genre_text = genre_tag.get_text(strip=True)
-        if any(kw in genre_text for kw in ["中華料理", "焼肉", "四川料理"]):
+        name = name_tag.get_text(strip=True)
+        url = name_tag["href"]
+        if name in excluded:
             continue
 
         print(f"✅ 取得：{name}")
