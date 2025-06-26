@@ -95,7 +95,7 @@ a:hover {
 </style>
 </head>
 <body>
-<h2>2025百名店候補店リスト</h2>
+<h2>2025百名店候補店リスト（20250626）</h2>
 <table>
 <tr><th>順位</th><th>店名（スコア）</th><th>最寄り駅</th><th>休業日</th><th>MAP</th><th>営業時間</th></tr>"""]
 
@@ -147,6 +147,12 @@ for page in range(5, 10):
 
         score = score_tag.get_text(strip=True) if score_tag else "?"
         rank = rank_tag.get_text(strip=True) if rank_tag else "?"
+        try:
+            rank_num = int(rank)
+            display_rank = str(rank_num - 5)
+        except:
+            display_rank = rank
+
         closed = holiday_tag.get_text(strip=True) if holiday_tag else ""
 
         station = "-"
@@ -196,7 +202,7 @@ for page in range(5, 10):
         map_link = f"<a href='https://www.google.com/maps/search/{name}' target='_blank'>MAP</a>"
         row_style = ' style=\"background-color:#f9f9f9;\"' if len(all_shops) % 2 == 0 else ''
         html_lines.append(
-            f"<tr{row_style}><td>{rank}</td><td><a href='{url}' target='_blank'>{name}{score_with_x}</a></td><td>{station}</td><td>{closed}</td><td>{map_link}</td><td>{hours}</td></tr>"
+            f"<tr{row_style}><td>{display_rank}</td><td><a href='{url}' target='_blank'>{name}{score_with_x}</a></td><td>{station}</td><td>{closed}</td><td>{map_link}</td><td>{hours}</td></tr>"
         )
 
         all_shops.append(name)
