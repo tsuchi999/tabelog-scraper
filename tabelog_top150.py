@@ -10,7 +10,7 @@ headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-base_url = "https://tabelog.com/kanagawa/rstLst/ramen/{}/?Srt=D&SrtT=rt&sk=ラーメン&svd=20250528&svt=1900&svps=2"
+base_url = "https://tabelog.com/kanagawa/rstLst/ramen/?SrtT=rt&Srt=D&sort_mode=1"
 exclude_keywords = ["中華料理", "焼肉", "四川料理"]
 exclude_status = ["移転", "閉店"]
 shop_list = []
