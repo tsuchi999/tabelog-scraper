@@ -10,7 +10,8 @@ headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-base_url = "https://tabelog.com/kanagawa/rstLst/ramen/?Srt=D&SrtT=rt&sk=%E3%83%A9%E3%83%BC%E3%83%A1%E3%83%B3&svd=20250915&svt=1900&svps=2&sort_mode=1"
+base_url = "# 末尾に &PG={} を追加
+base_url = "https://tabelog.com/kanagawa/rstLst/ramen/?Srt=D&SrtT=rt&sk=%E3%83%A9%E3%83%BC%E3%83%A1%E3%83%B3&svd=20250915&svt=1900&svps=2&sort_mode=1&PG={}""
 exclude_keywords = ["中華料理", "焼肉", "四川料理"]
 exclude_status = ["移転", "閉店"]
 shop_list = []
@@ -75,7 +76,7 @@ for page in range(1, 11):
 
         is_hyakumeiten = bool(hyakumeiten_tag)
         info_url = href
-        map_url = f"https://www.google.com/maps/search/?q={name}"
+        map_url = f"https://www.google.com/maps/search/?api=1&query={name}"
 
         shop_list.append((name, is_hyakumeiten, location, holiday, score, review, info_url, map_url))
 
