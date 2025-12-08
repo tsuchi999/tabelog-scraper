@@ -150,25 +150,47 @@ with open(OUT_HTML, "w", encoding="utf-8") as f:
     f.write(".rank{width:4%;text-align:center}\n")
     f.write("</style></head><body>\n")
     f.write(f"<h2>{now} 神奈川ラーメン 上位{len(collected)}店</h2>\n")
+    f.write(f"<tr{row_class}>")
     f.write("<table>\n<tr><th class='rank'>順位</th><th>店名</th><th>エリア</th><th>定休日</th><th>スコア</th><th>INFO</th><th>MAP</th></tr>\n")
+        <style>
+        body { font-family: sans-serif; margin: 0; padding: 0; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+
+        .hyakumeiten { color: orange; font-weight: bold; }
+        .visited { color: green; font-weight: bold; }
+
+        .rank { width: 5%; text-align: center; }
+
+        /* ★100位と101位の境界に赤い線を引く★ */
+        .border-divider {
+            border-top: 4px solid red !important;
+        }
+    </style>
+
 
     for i, (name, area, holiday, score, info_url, map_url) in enumerate(collected, start=1):
-        # 色条件
-        name_html = name
-        if name in hyakumeiten_names:
-            name_html = f"<span class='hyakumeiten'>{name}</span>"
-        elif name in visited_names:
-            name_html = f"<span class='visited'>{name}</span>"
 
-        f.write("<tr>")
-        f.write(f"<td class='rank'>{i}</td>")
-        f.write(f"<td>{name_html}</td>")
-        f.write(f"<td>{area}</td>")
-        f.write(f"<td>{holiday}</td>")
-        f.write(f"<td style='text-align:center'>{score}</td>")
-        f.write(f"<td><a href='{info_url}' target='_blank'>INFO</a></td>")
-        f.write(f"<td><a href='{map_url}' target='_blank'>MAP</a></td>")
-        f.write("</tr>\n")
+    # 100位と101位の境界線
+    row_class = " class='border-divider'" if i == 101 else ""
+
+    name_html = name
+    if name in hyakumeiten_names:
+        name_html = f"<span class='hyakumeiten'>{name}</span>"
+    elif name in visited_names:
+        name_html = f"<span class='visited'>{name}</span>"
+
+    f.write(f"<tr{row_class}>")
+    f.write(f"<td class='rank'>{i}</td>")
+    f.write(f"<td>{name_html}</td>")
+    f.write(f"<td>{area}</td>")
+    f.write(f"<td>{holiday}</td>")
+    f.write(f"<td style='text-align:center'>{score}</td>")
+    f.write(f"<td><a href='{info_url}' target='_blank'>INFO</a></td>")
+    f.write(f"<td><a href='{map_url}' target='_blank'>MAP</a></td>")
+    f.write("</tr>\n")
+
 
     f.write("</table>\n</body></html>")
 
