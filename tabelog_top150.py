@@ -10,7 +10,7 @@ headers = {
     "User-Agent": "Mozilla/5.0"
 }
 
-base_url = "https://tabelog.com/kanagawa/rstLst/ramen/?SrtT=rt&Srt=D&sort_mode=1"
+base_url = "https://tabelog.com/kanagawa/rstLst/ramen/?Srt=D&SrtT=rt&sk=%E3%83%A9%E3%83%BC%E3%83%A1%E3%83%B3&svd=20250915&svt=1900&svps=2&sort_mode=1"
 exclude_keywords = ["中華料理", "焼肉", "四川料理"]
 exclude_status = ["移転", "閉店"]
 shop_list = []
@@ -36,7 +36,7 @@ for page in range(1, 11):
         name_tag = shop.select_one("a.list-rst__rst-name-target")
         genre_tag = shop.select_one("div.list-rst__area-genre")
         status_tag = shop.select_one("span.c-badge-rst-status")
-        hyakumeiten_tag = shop.select_one("span.c-badge-hyakumeiten--2024ramen")
+        hyakumeiten_tag = shop.select_one("span.c-badge-hyakumeiten--2025ramen")
         score_tag = shop.select_one("span.c-rating__val")
         review_tag = shop.select_one("em.list-rst__rvw-count-num")
         station_tag = shop.select_one("span.linktree__parent-target-text")
