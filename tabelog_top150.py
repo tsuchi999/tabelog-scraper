@@ -1,143 +1,176 @@
+# tabelog_top150_hyakumeiten.py
+# Python 3.8+
 import requests
 from bs4 import BeautifulSoup
-import os
 import time
 import datetime
+import os
+import re
+import urllib.parse
 
-# ========== 基本設定 ==========
-base_url = "https://award.tabelog.com/hyakumeiten/ramen_kanagawa?page={}"
+# ----------------- 設定 -----------------
 headers = {"User-Agent": "Mozilla/5.0"}
+# ページはパス部分に入る：/ramen/{page}/?...
+BASE_URL_TEMPLATE = "https://tabelog.com/kanagawa/rstLst/ramen/{page}/?Srt=D&SrtT=rt&sort_mode=1"
 
-# ========== ディレクトリ設定 ==========
-base_dir = r"D:\tabelog"
-os.makedirs(base_dir, exist_ok=True)
+# 出力ディレクトリ（要求どおり tabelog 配下にファイルがある想定）
+BASE_DIR = r"D:\tabelog"               # 既存ファイルの場所
+OUTPUT_HTML_DIR = r"D:\PythonScripts"  # HTML を置く場所（任意）
+os.makedirs(BASE_DIR, exist_ok=True)
+os.makedirs(OUTPUT_HTML_DIR, exist_ok=True)
 
-exclude_file = os.path.join(base_dir, "exclude_names.txt")
-visited_file = os.path.join(base_dir, "visited.txt")
-hyakumeiten_file = os.path.join(base_dir, "hyakumeiten2025.txt")
+# ファイル名
+EXCLUDE_FILE = os.path.join(BASE_DIR, "exclude_names.txt")
+VISITED_FILE = os.path.join(BASE_DIR, "visited.txt")
+HYAKUMEITEN_FILE = os.path.join(BASE_DIR, "hyakumeiten2025.txt")
 
-# ========== 除外店・訪問店・百名店の読み込み ==========
-exclude_names = set()
-visited_names = set()
-hyakumeiten_2025 = set()
+# 出力ファイル
+OUT_HTML = os.path.join(OUTPUT_HTML_DIR, "hyakumeiten_best150.html")
+OUT_TXT = os.path.join(OUTPUT_HTML_DIR, "hyakumeiten_best150.txt")
 
-def load_set_from_file(path):
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            return {line.strip() for line in f if line.strip()}
-    return set()
+# スクレイピング上限
+TARGET_COUNT = 150
+# ページ取得間隔（秒）
+SLEEP_BETWEEN_PAGES = 1.0
 
-exclude_names = load_set_from_file(exclude_file)
-visited_names = load_set_from_file(visited_file)
-hyakumeiten_2025 = load_set_from_file(hyakumeiten_file)
+# ----------------- ヘルパー -----------------
+def load_set(path):
+    if not os.path.exists(path):
+        return set()
+    with open(path, "r", encoding="utf-8") as f:
+        return {line.strip() for line in f if line.strip()}
 
-print("除外:", len(exclude_names), "訪問:", len(visited_names), "百名店2025:", len(hyakumeiten_2025))
+def safe_text(el):
+    return el.get_text(strip=True) if el else ""
 
-# ========== スクレイピング ==========
-shop_list = []
+# ----------------- ファイル読み込み -----------------
+exclude_names = load_set(EXCLUDE_FILE)
+visited_names = load_set(VISITED_FILE)
+hyakumeiten_names = load_set(HYAKUMEITEN_FILE)
 
-for page in range(1, 10):  # 百名店ページは1〜9で150件到達
-    url = base_url.format(page)
-    print(f"📄 ページ取得: {url}")
+print(f"exclude: {len(exclude_names)} visited: {len(visited_names)} hyakumeiten2025: {len(hyakumeiten_names)}")
 
-    res = requests.get(url, headers=headers)
-    soup = BeautifulSoup(res.text, "html.parser")
+# ----------------- スクレイピング -----------------
+collected = []   # list of tuples: (name, area, holiday, score, info_url, map_url)
+seen_urls = set()  # 一意判定は URL で
 
-    cards = soup.select("div.p-restaurant-list__item")
-    if not cards:
+page = 1
+while len(collected) < TARGET_COUNT:
+    url = BASE_URL_TEMPLATE.format(page=page)
+    print(f"[page {page}] GET {url}")
+    try:
+        r = requests.get(url, headers=headers, timeout=15)
+    except Exception as e:
+        print("Request failed:", e)
         break
 
-    for c in cards:
-        name_tag = c.select_one("a.p-restaurant-name")
-        score_tag = c.select_one("b.c-rating__val")
-        area_tag = c.select_one("span.p-restaurant-area")
-        holiday_tag = c.select_one("span.p-restaurant-holiday-text")
+    if r.status_code != 200:
+        print("非200応答:", r.status_code)
+        break
 
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    # 食べログのランキング一覧のカード要素（多数バージョンあるので複数試す）
+    cards = soup.select("div.list-rst__wrap") or soup.select("div.p-restaurant-list__item") or soup.select("article.c-list-rst")
+    if not cards:
+        print("カード要素が見つかりません。ページ構造が変わった可能性があります。停止します。")
+        break
+
+    new_on_page = 0
+    for c in cards:
+        # 店名／リンク（主要セレクタ）
+        name_tag = c.select_one("a.list-rst__rst-name-target") or c.select_one("a.p-restaurant-name") or c.select_one("a.c-list-rst__title-link")
         if not name_tag:
             continue
-
-        name = name_tag.text.strip()
-        url_info = name_tag.get("href")
-
-        if name in exclude_names:
-            print("🚫 除外:", name)
+        name = name_tag.get_text(strip=True)
+        href = name_tag.get("href", "").split("?")[0].strip()
+        if not href:
             continue
 
-        score = score_tag.text.strip() if score_tag else "-"
-        area = area_tag.text.strip() if area_tag else "-"
-        holiday = holiday_tag.text.strip() if holiday_tag else "-"
+        # 除外判定（名前ベース）
+        if name in exclude_names:
+            # 除外リストに載っているらしい
+            print("  - 除外:", name)
+            continue
 
-        map_url = f"https://www.google.com/maps/search/?api=1&query={name}"
+        # 重複判定（URLベース）
+        if href in seen_urls:
+            # 既に収集済み
+            continue
 
-        shop_list.append((name, area, holiday, score, url_info, map_url))
+        # エリア・定休日・スコアなど
+        score_tag = c.select_one("span.c-rating__val") or c.select_one("b.c-rating__val")
+        area_tag = c.select_one("div.list-rst__area-genre") or c.select_one("span.p-restaurant-area") or c.select_one("span.linktree__parent-target-text")
+        holiday_tag = c.select_one("span.list-rst__holiday-text") or c.select_one("span.p-restaurant-holiday-text")
 
-        if len(shop_list) >= 150:
+        score = safe_text(score_tag) or "-"
+        # エリアはスラッシュ区切りの場合がある。先頭を駅とする。
+        area_text = safe_text(area_tag)
+        if "/" in area_text:
+            area = area_text.split("/")[0].strip()
+        else:
+            area = area_text or "-"
+
+        holiday = safe_text(holiday_tag) or "-"
+
+        # Google Map 検索リンクを作る（URLエンコード）
+        map_q = urllib.parse.quote_plus(name + " " + area)
+        map_url = f"https://www.google.com/maps/search/?api=1&query={map_q}"
+
+        collected.append((name, area, holiday, score, href, map_url))
+        seen_urls.add(href)
+        new_on_page += 1
+
+        if len(collected) >= TARGET_COUNT:
             break
 
-    time.sleep(1)
-    if len(shop_list) >= 150:
-        break
+    print(f"  => このページで新規取得 {new_on_page} 件。合計 {len(collected)} / {TARGET_COUNT}")
+    page += 1
+    time.sleep(SLEEP_BETWEEN_PAGES)
 
-# ========== HTML 出力 ==========
-output_dir = r"D:\PythonScripts"
-os.makedirs(output_dir, exist_ok=True)
+# ----------------- テキスト出力（店名のみ、改行区切り） -----------------
+with open(OUT_TXT, "w", encoding="utf-8") as f:
+    for name, *_ in collected:
+        f.write(name + "\n")
+print("テキスト出力完了:", OUT_TXT)
 
-html_path = os.path.join(output_dir, "hyakumeiten_best150.html")
+# ----------------- HTML 出力（色付け） -----------------
+now = datetime.datetime.now().strftime("%Y年%m月%d日 %H:%M")
+with open(OUT_HTML, "w", encoding="utf-8") as f:
+    f.write("<!doctype html>\n<html lang='ja'><head><meta charset='utf-8'>\n")
+    f.write(f"<title>{now} 神奈川 ラーメン 上位{len(collected)}店</title>\n")
+    f.write("<style>\n")
+    f.write("body{font-family:Arial,Helvetica,'Hiragino Kaku Gothic ProN',Meiryo, sans-serif;}\n")
+    f.write("table{width:100%;border-collapse:collapse}\n")
+    f.write("th,td{border:1px solid #ddd;padding:6px}\n")
+    f.write("tr:nth-child(even){background:#f9f9f9}\n")
+    # スタイル：hyakumeiten = オレンジ、visited = 緑
+    f.write(".hyakumeiten{color:orange;font-weight:bold}\n")
+    f.write(".visited{color:green;font-weight:bold}\n")
+    f.write(".rank{width:4%;text-align:center}\n")
+    f.write("</style></head><body>\n")
+    f.write(f"<h2>{now} 神奈川ラーメン 上位{len(collected)}店</h2>\n")
+    f.write("<table>\n<tr><th class='rank'>順位</th><th>店名</th><th>エリア</th><th>定休日</th><th>スコア</th><th>INFO</th><th>MAP</th></tr>\n")
 
-today = datetime.datetime.now().strftime("%Y年%m月%d日")
-
-with open(html_path, "w", encoding="utf-8") as f:
-    f.write(f"""
-<html>
-<head>
-<meta charset="utf-8">
-<title>{today} 神奈川ラーメン 上位150店</title>
-<style>
-body {{ font-family: sans-serif; }}
-table {{ border-collapse: collapse; width: 100%; }}
-th, td {{ border: 1px solid #ccc; padding: 6px; }}
-tr:nth-child(even) {{ background: #f9f9f9; }}
-.orange {{ color: orange; font-weight: bold; }}
-.green {{ color: green; font-weight: bold; }}
-.rank {{ width: 5%; text-align: center; }}
-</style>
-</head>
-<body>
-<h2>{today} 神奈川ラーメン 上位150店</h2>
-<table>
-<tr>
-<th class="rank">順位</th>
-<th>店名</th>
-<th>エリア</th>
-<th>定休</th>
-<th>スコア</th>
-<th>INFO</th>
-<th>MAP</th>
-</tr>
-""")
-
-    for idx, (name, area, holiday, score, info_url, map_url) in enumerate(shop_list, start=1):
-
-        # 色付け
-        if name in hyakumeiten_2025:
-            name_html = f"<span class='orange'>{name}</span>"
+    for i, (name, area, holiday, score, info_url, map_url) in enumerate(collected, start=1):
+        # 色条件
+        name_html = name
+        if name in hyakumeiten_names:
+            name_html = f"<span class='hyakumeiten'>{name}</span>"
         elif name in visited_names:
-            name_html = f"<span class='green'>{name}</span>"
-        else:
-            name_html = name
+            name_html = f"<span class='visited'>{name}</span>"
 
-        f.write(f"""
-<tr>
-<td class="rank">{idx}</td>
-<td>{name_html}</td>
-<td>{area}</td>
-<td>{holiday}</td>
-<td>{score}</td>
-<td><a href="{info_url}" target="_blank">INFO</a></td>
-<td><a href="{map_url}" target="_blank">MAP</a></td>
-</tr>
-""")
+        f.write("<tr>")
+        f.write(f"<td class='rank'>{i}</td>")
+        f.write(f"<td>{name_html}</td>")
+        f.write(f"<td>{area}</td>")
+        f.write(f"<td>{holiday}</td>")
+        f.write(f"<td style='text-align:center'>{score}</td>")
+        f.write(f"<td><a href='{info_url}' target='_blank'>INFO</a></td>")
+        f.write(f"<td><a href='{map_url}' target='_blank'>MAP</a></td>")
+        f.write("</tr>\n")
 
-    f.write("</table></body></html>")
+    f.write("</table>\n</body></html>")
 
-print("🎉 完了！ →", html_path)
+print("HTML 出力完了:", OUT_HTML)
+print("処理終
