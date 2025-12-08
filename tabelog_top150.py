@@ -11,17 +11,14 @@ import urllib.parse
 
 headers = {"User-Agent": "Mozilla/5.0"}
 
-# page はパス部分に入る
 BASE_URL_TEMPLATE = "https://tabelog.com/kanagawa/rstLst/ramen/{page}/?Srt=D&SrtT=rt&sort_mode=1"
 
-# ディレクトリ
 BASE_DIR = r"D:\tabelog"
 OUTPUT_DIR = r"D:\PythonScripts"
 
 os.makedirs(BASE_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# ファイル
 EXCLUDE_FILE = os.path.join(BASE_DIR, "exclude_names.txt")
 VISITED_FILE = os.path.join(BASE_DIR, "visited.txt")
 HYAKUMEITEN_FILE = os.path.join(BASE_DIR, "hyakumeiten2025.txt")
@@ -29,7 +26,6 @@ HYAKUMEITEN_FILE = os.path.join(BASE_DIR, "hyakumeiten2025.txt")
 OUT_HTML = os.path.join(OUTPUT_DIR, "hyakumeiten_best150.html")
 OUT_TXT = os.path.join(OUTPUT_DIR, "hyakumeiten_best150.txt")
 
-# 上位150店舗取得
 TARGET_COUNT = 150
 
 
@@ -84,7 +80,6 @@ while len(collected) < TARGET_COUNT:
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # 店カード
     cards = (
         soup.select("div.list-rst__wrap")
         or soup.select("div.p-restaurant-list__item")
@@ -112,7 +107,6 @@ while len(collected) < TARGET_COUNT:
         if not href:
             continue
 
-        # 除外
         if name in exclude_names:
             print("  - exclude:", name)
             continue
@@ -120,14 +114,12 @@ while len(collected) < TARGET_COUNT:
         if href in seen_urls:
             continue
 
-        # スコア
         score_tag = (
             c.select_one("span.c-rating__val")
             or c.select_one("b.c-rating__val")
         )
         score = safe_text(score_tag) or "-"
 
-        # エリア
         area_tag = (
             c.select_one("div.list-rst__area-genre")
             or c.select_one("span.p-restaurant-area")
@@ -139,14 +131,13 @@ while len(collected) < TARGET_COUNT:
         else:
             area = area_text or "-"
 
-        # 定休日
         holiday_tag = (
             c.select_one("span.list-rst__holiday-text")
             or c.select_one("span.p-restaurant-holiday-text")
         )
         holiday = safe_text(holiday_tag) or "-"
 
-        # 口コミ数（レビュー数）
+        # 口コミ数
         review_tag = (
             c.select_one("em.list-rst__rvw-count-num")
             or c.select_one("span.c-rating__val.c-rating__val--rvw")
@@ -154,7 +145,7 @@ while len(collected) < TARGET_COUNT:
         )
         review = safe_text(review_tag) or "0"
 
-        # MAP検索
+        # MAP
         map_q = urllib.parse.quote_plus(name + " " + area)
         map_url = f"https://www.google.com/maps/search/?api=1&query={map_q}"
 
@@ -202,6 +193,7 @@ with open(OUT_HTML, "w", encoding="utf-8") as f:
     f.write(".visited { color: green; font-weight: bold; }\n")
     f.write(".rank { width: 4%; text-align: center; }\n")
     f.write(".border-divider { border-top: 4px solid red !important; }\n")
+    f.write(".review-low { color: red; font-weight: bold; }\n")
     f.write("</style>\n")
 
     f.write("</head>\n<body>\n")
@@ -223,6 +215,7 @@ with open(OUT_HTML, "w", encoding="utf-8") as f:
 
         row_class = " class='border-divider'" if i == 101 else ""
 
+        # 百名店・visited 色分け
         if name in hyakumeiten_names:
             name_html = f"<span class='hyakumeiten'>{name}</span>"
         elif name in visited_names:
@@ -230,13 +223,21 @@ with open(OUT_HTML, "w", encoding="utf-8") as f:
         else:
             name_html = name
 
+        # 口コミ200以下 → 赤字
+        try:
+            review_num = int(review)
+        except:
+            review_num = 0
+
+        review_class = "review-low" if review_num <= 200 else ""
+
         f.write(f"<tr{row_class}>")
         f.write(f"<td class='rank'>{i}</td>")
         f.write(f"<td>{name_html}</td>")
         f.write(f"<td>{area}</td>")
         f.write(f"<td>{holiday}</td>")
         f.write(f"<td style='text-align:center'>{score}</td>")
-        f.write(f"<td style='text-align:center'>{review}</td>")
+        f.write(f"<td class='{review_class}' style='text-align:center'>{review}</td>")
         f.write(f"<td><a href='{info_url}' target='_blank'>INFO</a></td>")
         f.write(f"<td><a href='{map_url}' target='_blank'>MAP</a></td>")
         f.write("</tr>\n")
