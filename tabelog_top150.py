@@ -32,6 +32,7 @@ OUT_TXT = os.path.join(OUTPUT_DIR, "hyakumeiten_best150.txt")
 # 上位150店舗取得
 TARGET_COUNT = 150
 
+
 # ============================================================
 # ヘルパー
 # ============================================================
@@ -45,6 +46,7 @@ def load_set(path):
 def safe_text(el):
     return el.get_text(strip=True) if el else ""
 
+
 # ============================================================
 # データ読み込み
 # ============================================================
@@ -56,6 +58,7 @@ hyakumeiten_names = load_set(HYAKUMEITEN_FILE)
 print("exclude:", len(exclude_names))
 print("visited:", len(visited_names))
 print("hyakumeiten2025:", len(hyakumeiten_names))
+
 
 # ============================================================
 # スクレイピング本体
@@ -81,7 +84,7 @@ while len(collected) < TARGET_COUNT:
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # 店カードを複数パターンで取得
+    # 店カード
     cards = (
         soup.select("div.list-rst__wrap")
         or soup.select("div.p-restaurant-list__item")
@@ -105,6 +108,7 @@ while len(collected) < TARGET_COUNT:
 
         name = name_tag.get_text(strip=True)
         href = name_tag.get("href", "").split("?")[0].strip()
+
         if not href:
             continue
 
@@ -113,36 +117,48 @@ while len(collected) < TARGET_COUNT:
             print("  - exclude:", name)
             continue
 
-        # 既に取得した店のURLは除外
         if href in seen_urls:
             continue
 
-        # 詳細
-        score_tag = c.select_one("span.c-rating__val") or c.select_one("b.c-rating__val")
+        # スコア
+        score_tag = (
+            c.select_one("span.c-rating__val")
+            or c.select_one("b.c-rating__val")
+        )
+        score = safe_text(score_tag) or "-"
+
+        # エリア
         area_tag = (
             c.select_one("div.list-rst__area-genre")
             or c.select_one("span.p-restaurant-area")
             or c.select_one("span.linktree__parent-target-text")
         )
-        holiday_tag = (
-            c.select_one("span.list-rst__holiday-text")
-            or c.select_one("span.p-restaurant-holiday-text")
-        )
-
-        score = safe_text(score_tag) or "-"
         area_text = safe_text(area_tag)
-
         if "/" in area_text:
             area = area_text.split("/")[0].strip()
         else:
             area = area_text or "-"
 
+        # 定休日
+        holiday_tag = (
+            c.select_one("span.list-rst__holiday-text")
+            or c.select_one("span.p-restaurant-holiday-text")
+        )
         holiday = safe_text(holiday_tag) or "-"
 
+        # 口コミ数（レビュー数）
+        review_tag = (
+            c.select_one("em.list-rst__rvw-count-num")
+            or c.select_one("span.c-rating__val.c-rating__val--rvw")
+            or c.select_one("a.c-rating__link-review span")
+        )
+        review = safe_text(review_tag) or "0"
+
+        # MAP検索
         map_q = urllib.parse.quote_plus(name + " " + area)
         map_url = f"https://www.google.com/maps/search/?api=1&query={map_q}"
 
-        collected.append((name, area, holiday, score, href, map_url))
+        collected.append((name, area, holiday, score, review, href, map_url))
         seen_urls.add(href)
         new_items += 1
 
@@ -153,8 +169,9 @@ while len(collected) < TARGET_COUNT:
     page += 1
     time.sleep(1)
 
+
 # ============================================================
-# テキスト出力
+# TXT 出力
 # ============================================================
 
 with open(OUT_TXT, "w", encoding="utf-8") as f:
@@ -163,19 +180,19 @@ with open(OUT_TXT, "w", encoding="utf-8") as f:
 
 print("TXT saved:", OUT_TXT)
 
+
 # ============================================================
-# HTML 出力（安全版）
+# HTML 出力（完全版）
 # ============================================================
 
 now = datetime.datetime.now().strftime("%Y年%m月%d日 %H:%M")
 
 with open(OUT_HTML, "w", encoding="utf-8") as f:
 
-    # ---------- HTML header ----------
     f.write("<!doctype html>\n<html lang='ja'>\n<head>\n<meta charset='utf-8'>\n")
     f.write(f"<title>{now} 神奈川ラーメン 上位150店</title>\n")
 
-    # ---------- CSS ----------
+    # CSS
     f.write("<style>\n")
     f.write("body { font-family: Arial, Helvetica, Meiryo, sans-serif; }\n")
     f.write("table { width: 100%; border-collapse: collapse; }\n")
@@ -184,21 +201,25 @@ with open(OUT_HTML, "w", encoding="utf-8") as f:
     f.write(".hyakumeiten { color: orange; font-weight: bold; }\n")
     f.write(".visited { color: green; font-weight: bold; }\n")
     f.write(".rank { width: 4%; text-align: center; }\n")
-    # ★ 100位と101位の境目に赤い線
     f.write(".border-divider { border-top: 4px solid red !important; }\n")
     f.write("</style>\n")
 
-    # ---------- body 開始 ----------
     f.write("</head>\n<body>\n")
     f.write(f"<h2>{now} 神奈川ラーメン 上位150店</h2>\n")
+
     f.write("<table>\n")
     f.write("<tr>"
-            "<th class='rank'>順位</th><th>店名</th>"
-            "<th>エリア</th><th>定休</th><th>スコア</th>"
-            "<th>INFO</th><th>MAP</th></tr>\n")
+            "<th class='rank'>順位</th>"
+            "<th>店名</th>"
+            "<th>エリア</th>"
+            "<th>定休</th>"
+            "<th>スコア</th>"
+            "<th>口コミ</th>"
+            "<th>INFO</th>"
+            "<th>MAP</th>"
+            "</tr>\n")
 
-    # ---------- テーブル本体 ----------
-    for i, (name, area, holiday, score, info_url, map_url) in enumerate(collected, start=1):
+    for i, (name, area, holiday, score, review, info_url, map_url) in enumerate(collected, start=1):
 
         row_class = " class='border-divider'" if i == 101 else ""
 
@@ -215,11 +236,11 @@ with open(OUT_HTML, "w", encoding="utf-8") as f:
         f.write(f"<td>{area}</td>")
         f.write(f"<td>{holiday}</td>")
         f.write(f"<td style='text-align:center'>{score}</td>")
+        f.write(f"<td style='text-align:center'>{review}</td>")
         f.write(f"<td><a href='{info_url}' target='_blank'>INFO</a></td>")
         f.write(f"<td><a href='{map_url}' target='_blank'>MAP</a></td>")
         f.write("</tr>\n")
 
-    # ---------- HTML end ----------
     f.write("</table>\n</body>\n</html>\n")
 
 print("HTML saved:", OUT_HTML)
