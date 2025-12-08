@@ -173,4 +173,4 @@ with open(OUT_HTML, "w", encoding="utf-8") as f:
     f.write("</table>\n</body></html>")
 
 print("HTML 出力完了:", OUT_HTML)
-print("処理終
+print("処理終了。")
