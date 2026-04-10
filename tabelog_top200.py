@@ -194,7 +194,8 @@ with open(OUT_HTML, "w", encoding="utf-8") as f:
     f.write(".hyakumeiten { color: orange; font-weight: bold; }\n")
     f.write(".visited { color: green; font-weight: bold; }\n")
     f.write(".rank { width: 4%; text-align: center; }\n")
-    f.write(".border-divider { border-top: 4px solid red !important; }\n")
+    f.write(".border-divider { border-top: 4px solid red !important; }\n") # 100位の赤線
+    f.write(".score-divider { border-top: 4px solid blue !important; }\n") # スコアの青線
     f.write(".review-low { color: red; font-weight: bold; }\n")
     f.write("</style>\n")
 
@@ -213,10 +214,34 @@ with open(OUT_HTML, "w", encoding="utf-8") as f:
             "<th>MAP</th>"
             "</tr>\n")
 
+    # 前の行のスコアを保持する変数
+    prev_score_val = None
+
     for i, (name, area, holiday, score, review, info_url, map_url) in enumerate(collected, start=1):
 
-        # 101位（Top100圏外）の境界線は維持
-        row_class = " class='border-divider'" if i == 101 else ""
+        # スコアを数値に変換（比較用）
+        try:
+            current_score_val = float(score)
+        except ValueError:
+            current_score_val = 0.0
+
+        row_classes = []
+
+        # 1. 101位（Top100圏外）の境界線（赤）
+        if i == 101:
+            row_classes.append("border-divider")
+
+        # 2. 3.62と3.61の間の境界線（青）
+        # 前の行が3.62以上で、現在の行が3.62未満の場合に線を入れる
+        if prev_score_val is not None:
+            if prev_score_val >= 3.62 and current_score_val < 3.62:
+                row_classes.append("score-divider")
+
+        # クラス属性の組み立て
+        row_class_attr = f" class='{' '.join(row_classes)}'" if row_classes else ""
+
+        # 次のループのために現在のスコアを保存
+        prev_score_val = current_score_val
 
         # 百名店・visited 色分け
         if name in hyakumeiten_names:
@@ -234,7 +259,7 @@ with open(OUT_HTML, "w", encoding="utf-8") as f:
 
         review_class = "review-low" if review_num <= 200 else ""
 
-        f.write(f"<tr{row_class}>")
+        f.write(f"<tr{row_class_attr}>")
         f.write(f"<td class='rank'>{i}</td>")
         f.write(f"<td>{name_html}</td>")
         f.write(f"<td>{area}</td>")
